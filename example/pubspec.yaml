@@ -1,0 +1,20 @@
+name: atelier_example
+description: "Démonstration de l'atelier : trois écrans, leurs états, et des tokens réglables."
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Dépendance ORDINAIRE ici, alors que la doc recommande `dev_dependencies` :
+  # cette app-ci n'est QUE l'atelier, son `lib/main.dart` l'importe donc
+  # directement. Dans une vraie app, l'atelier vit dans `tool/` et reste une
+  # dev_dependency, invisible du build publié.
+  atelier:
+    path: ../
+
+flutter:
+  uses-material-design: true

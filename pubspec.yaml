@@ -1,0 +1,30 @@
+name: atelier
+description: "Voir tous les écrans d'une app Flutter en même temps, pour juger le design d'ensemble au lieu d'un écran à la fois."
+version: 0.12.1
+publish_to: 'none' # dépendance par chemin ou par git tant que ça n'a pas fait ses preuves ailleurs
+
+environment:
+  # Aligné sur les projets qui la consomment. Le plancher vient de ce qu'utilise
+  # le paquet : paramètres jokers (`(_, _, _)`) et `Color.withValues`.
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Uniquement pour RETENIR les réglages du mur (échelle, axes, tokens) d'une
+  # session à l'autre, sous des clés préfixées `atelier.`. Aucune donnée de
+  # votre app n'est touchée.
+  shared_preferences: ^2.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # UNIQUEMENT POUR LES TESTS, jamais imposees a qui installe le paquet.
+  # `enveloppe` promet de marcher avec les gestionnaires d'etat courants : le
+  # verifier avec un InheritedWidget maison ne prouvait que mon propre cas.
+  provider: ^6.1.2
+  flutter_riverpod: ^2.5.1
+
+flutter:
