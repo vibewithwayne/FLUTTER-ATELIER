@@ -65,12 +65,34 @@ class AtelierCanvas {
   final double safeHaut;
   final double safeBas;
 
-  /// iPhone 13 Pro Max ramené au canvas 390 (même rapport, 926/428 ≈ 844/390).
+  /// iPhone 13/14/15 Pro, et la taille de tous les iPhone « normaux » depuis
+  /// le 12. C'est le format de référence, celui qu'on regarde par défaut.
   static const iphone = AtelierCanvas(
     nom: 'iPhone',
     largeur: 390,
     hauteur: 844,
     safeHaut: 44,
+    safeBas: 34,
+  );
+
+  /// iPhone Pro Max, taille RÉELLE (428×926, barre d'état de 47).
+  ///
+  /// Ce format existait auparavant sous [iphone], « ramené au canvas 390 par
+  /// le même rapport ». Le raccourci est faux dès qu'on cherche un
+  /// débordement : deux écrans de rapport identique ne cassent pas au même
+  /// endroit, parce qu'un texte ne se met pas à l'échelle comme sa boîte. Sur
+  /// 82 points de plus en largeur, une phrase tient sur deux lignes au lieu de
+  /// trois et la page cesse de défiler ; à hauteur égale en proportion, elle
+  /// défilerait quand même.
+  ///
+  /// À regarder EN PLUS de [petit], pas à la place : le grand écran dit ce
+  /// que voit la personne qui a payé le téléphone cher, le petit dit où la
+  /// mise en page rompt.
+  static const iphoneMax = AtelierCanvas(
+    nom: 'Pro Max',
+    largeur: 428,
+    hauteur: 926,
+    safeHaut: 47,
     safeBas: 34,
   );
 
@@ -101,8 +123,10 @@ class AtelierCanvas {
     safeBas: 0,
   );
 
-  /// Les formats proposés par le sélecteur du mur.
-  static const tous = [iphone, android, tablette, petit];
+  /// Les formats proposés par le sélecteur du mur, du plus courant au plus
+  /// extrême : la taille de référence, le grand, l'autre système, la tablette,
+  /// puis le petit écran qui casse tout.
+  static const tous = [iphone, iphoneMax, android, tablette, petit];
 
   @override
   String toString() => '$nom ${largeur.toInt()}×${hauteur?.toInt() ?? 'libre'}';

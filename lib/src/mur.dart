@@ -108,6 +108,44 @@ class _AtelierState extends State<Atelier> {
     if (mounted) setState(() {});
   }
 
+  /// COMBIEN CHAQUE ÉCRAN DÉFILE, en points, dans le format en cours.
+  ///
+  /// C'est le défaut le plus cher du mur, parce qu'il est INVISIBLE : à 32 %,
+  /// une page qui déborde ressemble trait pour trait à une page qui tient. La
+  /// vignette montre le haut, et rien ne dit qu'il manque le bas. On valide
+  /// alors un écran dont une partie des gens ne verra jamais la fin, ce qui
+  /// est exactement le contraire de ce que le mur promet.
+  ///
+  /// MESURÉ, pas deviné : tout `Scrollable` annonce ses métriques dès sa
+  /// première mise en page, et `maxScrollExtent` est précisément « ce qu'il
+  /// faut pousser pour atteindre le bas ». Zéro veut dire que tout tient.
+  ///
+  /// Clé = libellé + format, parce que la réponse dépend des deux : le même
+  /// écran déborde sur un petit écran et respire sur un Pro Max.
+  final Map<String, double> _defile = {};
+
+  static String _cleDefile(AtelierCase c, AtelierCanvas canvas) =>
+      '${c.label}|${canvas.nom}';
+
+  /// Retient le débordement d'un écran, et ne garde que le PLUS GRAND vu.
+  ///
+  /// Monotone volontairement : la mesure arrive pendant la mise en page, donc
+  /// elle déclenche un `setState` qui déclenche une mise en page. Une valeur
+  /// qui pourrait redescendre ferait osciller le mur sans jamais se poser ;
+  /// une valeur qui ne fait que monter converge en un tour. Et pour la
+  /// question posée, « est-ce que ça déborde », le maximum est de toute façon
+  /// la bonne statistique.
+  void _noteDefilement(String cle, double px) {
+    final v = px.roundToDouble();
+    if (v <= (_defile[cle] ?? 0)) return;
+    _defile[cle] = v;
+    // On ne peut pas reconstruire maintenant : on est au milieu d'une mise en
+    // page, et `setState` pendant un layout est une erreur Flutter.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   /// Le thème appliqué aux ÉCRANS (pas au chrome de l'atelier, qui reste
   /// neutre : un panneau de réglages illisible parce qu'on vient de pousser
   /// une couleur à l'extrême ne rend service à personne).
@@ -189,7 +227,26 @@ class _AtelierState extends State<Atelier> {
         return theme == null ? e : Theme(data: theme, child: e);
       },
     );
-    return _canvas(canvas, ecran, anime: anime);
+    // LA MESURE DU DÉBORDEMENT, posée ici et pas dans la vignette : elle doit
+    // englober l'écran DÉJÀ enfermé dans son canvas, sinon on mesurerait un
+    // écran libre de s'étendre, qui ne déborde jamais.
+    //
+    // Seul l'axe VERTICAL compte. Une rangée qui défile horizontalement est
+    // une intention de design (un carrousel de packs), pas un défaut ; la
+    // signaler ferait passer le badge pour du bruit, et un badge qu'on
+    // apprend à ignorer ne sert plus à rien.
+    final mesure = NotificationListener<ScrollMetricsNotification>(
+      onNotification: (n) {
+        if (n.metrics.axis == Axis.vertical) {
+          _noteDefilement(_cleDefile(c, canvas), n.metrics.maxScrollExtent);
+        }
+        // `false` : la notification continue de monter. D'autres widgets
+        // peuvent l'attendre, et l'atelier n'a pas à leur couper la parole.
+        return false;
+      },
+      child: ecran,
+    );
+    return _canvas(canvas, mesure, anime: anime);
   }
 
   @override
@@ -952,6 +1009,27 @@ sections: [
                   color: surFond.withValues(alpha: .7),
                 ),
               ),
+              // CE QUI MANQUE SOUS LA LIGNE DE FLOTTAISON. La vignette montre
+              // le haut de l'écran et rien d'autre : sans ce chiffre, un écran
+              // qui cache ses mentions légales, son prix ou son bouton
+              // derrière 200 points de défilement se valide sans qu'on le
+              // sache. Le nombre est en points, la même unité que le canvas,
+              // donc il se compare directement à la hauteur affichée.
+              if ((_defile[_cleDefile(c, canvas)] ?? 0) > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '↕ ${_defile[_cleDefile(c, canvas)]!.toInt()} pt cachés',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      // Ambre plutôt que rouge : ce n'est pas une erreur, un
+                      // écran long a parfaitement le droit de défiler. C'est
+                      // une chose à REGARDER, et à trancher au cas par cas.
+                      color: Color(0xFFFFB020),
+                    ),
+                  ),
+                ),
               // LE REPÈRE DES PISTES, sous le libellé et non sur la vignette :
               // un badge posé sur l'écran cacherait justement ce qu'on est
               // venu regarder.
@@ -1010,12 +1088,71 @@ Widget _canvas(AtelierCanvas c, Widget enfant, {required bool anime}) {
     child: SizedBox(
       width: c.largeur,
       height: h,
+      // LE NAVIGATEUR LOCAL EST RÉSERVÉ AUX ÉCRANS À HAUTEUR FIXE.
+      //
+      // Un `Navigator` porte un `Overlay`, et un `Overlay` ne sait pas se
+      // dimensionner sous une contrainte de hauteur infinie : sur une planche,
+      // il jette. Ce n'est pas une perte : une planche est une galerie de
+      // composants, elle ne pousse jamais de route.
       child: h != null
-          ? enfant
+          ? _navigateurLocal(enfant)
           : ConstrainedBox(
               constraints: BoxConstraints(maxHeight: c.hauteurMax),
               child: enfant,
             ),
     ),
   );
+}
+
+/// UN NAVIGATEUR PAR ÉCRAN, pour que ce qu'il pousse reste dans son téléphone.
+///
+/// Sans lui, `Navigator.push` remonte jusqu'au navigateur de l'atelier :
+/// l'écran poussé recouvre TOUTE la fenêtre, canvas compris, et on juge une
+/// feuille de recadrage étalée sur un écran d'ordinateur alors qu'elle vivra
+/// dans un téléphone. Constaté sur KITADI le 31/07/2026, et ça vaut pour
+/// n'importe quel écran qui ouvre une feuille, un sélecteur ou une boîte de
+/// dialogue en route.
+///
+/// `onGenerateRoute` sert l'écran comme route initiale, et tout ce qu'il pousse
+/// ensuite s'empile PAR-DESSUS lui, dans la même boîte.
+///
+/// ⚠️ Ne concerne QUE `Navigator` : un routeur d'application (GoRouter et
+/// consorts) garde le sien, il n'y a rien à faire pour l'en empêcher. Un écran
+/// qui appelle `context.go()` sortira toujours du mur, et c'est normal : ce
+/// n'est plus le même écran qu'on regarde.
+Widget _navigateurLocal(Widget enfant) => _Socle(
+  ecran: enfant,
+  child: Navigator(
+    onGenerateRoute: (_) => PageRouteBuilder(
+      // SANS TRANSITION ni fond opaque : la route initiale n'est pas une
+      // navigation, c'est juste le socle. Une animation ici ferait clignoter
+      // les quarante vignettes du mur à chaque reconstruction.
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      opaque: false,
+      pageBuilder: (c, _, _) => _Socle.de(c),
+    ),
+  ),
+);
+
+/// L'ÉCRAN COURANT, LU DEPUIS LA ROUTE et non capturé par elle.
+///
+/// Sans ce détour, `pageBuilder` refermerait sur l'écran du moment : la route
+/// est construite une fois, donc l'écran cesserait de réagir à tout ce que le
+/// mur change autour de lui, à commencer par les tokens et le thème. Les tests
+/// l'ont attrapé tout de suite (`tokens_test.dart`), en constatant qu'un rayon
+/// réglé dans le panneau ne bougeait plus dans la vignette.
+///
+/// Ici la route DÉPEND de cet héritage : quand le mur se reconstruit avec un
+/// nouvel écran, la dépendance se déclenche et la route se reconstruit avec.
+class _Socle extends InheritedWidget {
+  const _Socle({required this.ecran, required super.child});
+
+  final Widget ecran;
+
+  static Widget de(BuildContext c) =>
+      c.dependOnInheritedWidgetOfExactType<_Socle>()!.ecran;
+
+  @override
+  bool updateShouldNotify(_Socle ancien) => !identical(ancien.ecran, ecran);
 }
