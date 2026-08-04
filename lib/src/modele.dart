@@ -145,10 +145,33 @@ class AtelierCase {
     this.avant,
     this.enveloppe,
     this.variantes = const [],
+    this.action,
   });
 
   final String label;
   final Widget Function() build;
+
+  /// UN BOUTON À NOUS DANS LA BARRE DE LA LOUPE, à côté du titre.
+  ///
+  /// Certains écrans ont plusieurs CÔTÉS qu'on veut comparer sans les compter
+  /// deux fois dans le mur : la carte de débat de KITADI se joue au même
+  /// instant sur deux téléphones, celui qui parle et celui qui écoute. Deux
+  /// vignettes par mode doublaient la section et faisaient perdre la vue
+  /// d'ensemble, qui est la seule raison d'être du mur.
+  ///
+  /// L'écran lui-même ne peut pas porter ce bouton : tout ce qu'il dessine est
+  /// À L'INTÉRIEUR du téléphone, donc par-dessus ce qu'on veut justement juger.
+  /// La bascule appartient au CHROME du mur, pas au produit. D'où cet
+  /// emplacement, rendu dans la barre du haut de la loupe.
+  ///
+  /// Il reçoit un `setState` : appelle-le pour redessiner l'écran agrandi.
+  ///
+  /// ```dart
+  /// AtelierCase('Carte de débat', () => ..., action: (rafraichir) =>
+  ///   TextButton(onPressed: () { cote = !cote; rafraichir(); },
+  ///              child: Text(cote ? 'Public' : 'Je débats')));
+  /// ```
+  final Widget Function(VoidCallback rafraichir)? action;
 
   /// LES BROUILLONS de cet écran : deux ou trois pistes qu'on hésite à
   /// prendre, montrées côte à côte pour trancher.

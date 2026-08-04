@@ -94,15 +94,26 @@ class _LoupeState extends State<_Loupe> {
               ),
             ),
             Positioned(
-              top: 16,
+              top: 12,
               left: 20,
-              child: Text(
-                '${c.label}   ${_i + 1}/${widget.cases.length}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    '${c.label}   ${_i + 1}/${widget.cases.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  // LE BOUTON DE LA CASE, s'il en a un. Il vit ICI et pas dans
+                  // l'écran : un outil pour juger n'a rien à faire par-dessus
+                  // ce qu'on juge. Cf. `AtelierCase.action`.
+                  if (c.action != null) ...[
+                    const SizedBox(width: 14),
+                    c.action!(() => setState(() {})),
+                  ],
+                ],
               ),
             ),
             Positioned(
